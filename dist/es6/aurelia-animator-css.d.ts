@@ -1,9 +1,46 @@
 declare module 'aurelia-animator-css' {
-  import { animationEvent, TemplatingEngine }  from 'aurelia-templating';
   import { DOM }  from 'aurelia-pal';
+  import { animationEvent, TemplatingEngine }  from 'aurelia-templating';
   export interface CssAnimation {
     className: string;
     element: HTMLElement;
+  }
+  export class PropertyInstruction {
+    static animation(): PropertyInstruction;
+    static transition(): PropertyInstruction;
+    static transform(): PropertyInstruction;
+    static keyframes(): PropertyInstruction;
+    constructor(instruction: Object, init: Function);
+    initialize(instance: Property): void;
+  }
+  class KeyframesProperty {
+    constructor(instruction: Object);
+    createSheet(): any;
+    getKeyframeByAnimationNames(animNames: String): Boolean;
+  }
+  export class Property {
+    static animation(): Property;
+    static transition(): Property;
+    static transform(): Property;
+    static keyframes(): KeyframesProperty;
+    constructor(instruction: Object);
+    setStyle(node: Node, propName: String, propValue: String): Node;
+    assignStyle(node: Node, styles: Object): Node;
+    getComputedValue(node: Node, propName: String): String;
+    subscribe(element: undefined, eventName: String, callback: Function, bubbles: Boolean): Object;
+    unsubscribe(element: undefined, eventName: String, callback: Function, bubbles: Boolean): any;
+  }
+  export function logger(element: any): any;
+  class AnimationInstruction {
+    static animate(instruction: any): any;
+    static addClass(instruction: any): any;
+    static removeClass(instruction: any): any;
+    name: any;
+    doneClasses: any;
+    suppressEvents: any;
+    constructor(instruction: any);
+    changeClass(element: any, key: any): any;
+    containsClass(element: any, key: any): any;
   }
   
   /**

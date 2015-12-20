@@ -87,7 +87,6 @@ describe('animator-css', () => {
 
     it('should kick off animation', (done) => {
       var elem = $('.animated-item').eq(0)[0];
-
       sut.enter(elem).then( (didRunAnimation) => {
         expect(didRunAnimation).toBe(true);
         done();
@@ -96,7 +95,7 @@ describe('animator-css', () => {
 
     it('should not kick off animation on element without proper classes', (done) => {
       var elem = $('.boring-item').eq(0)[0];
-      sut.enter(elem).then( (didRunAnimation) => {
+      var anim = sut.enter(elem).then( (didRunAnimation) => {
         expect(didRunAnimation).toBe(false);
         done();
       });

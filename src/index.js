@@ -1,5 +1,6 @@
 import {TemplatingEngine} from 'aurelia-templating';
 import {CssAnimator} from './animator';
+import {Property} from './property';
 
 /**
  * Configuires the CssAnimator as the default animator for Aurelia.

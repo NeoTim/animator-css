@@ -1,11 +1,129 @@
-System.register(['aurelia-templating', 'aurelia-pal'], function (_export) {
+System.register(['aurelia-pal', 'aurelia-templating'], function (_export) {
   'use strict';
 
-  var animationEvent, TemplatingEngine, DOM, CssAnimator;
+  var DOM, animationEvent, TemplatingEngine, Webkit, Moz, O, webkit, moz, ms, o, anim, Anim, transit, Transit, transfm, Transfm, animProps, transitProps, transfmProps, animEvents, transitEvents, vendors, Vendors, animInstruction, transitInstruction, transfmInstruction, PREFIX, keyframestype, handlers, PropertyInstruction, KeyframesProperty, Property, animation, keyframes, AnimationInstruction, cachedInstruction, CssAnimator;
+
+  _export('logger', logger);
 
   _export('configure', configure);
 
   function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+  function findVendorPrefix() {
+    var node = DOM.createElement('div');
+
+    return check('AnimationName', vendors) || check('AnimationName', Vendors);
+    function check(key, _vendors) {
+      for (var vendor in _vendors) {
+        var name = vendor + key;
+        if (name in node.style && node.style[name] !== null) {
+          return vendor;
+        }
+      }
+    }
+  }
+
+  function createProps(instruction, cb) {
+    var pre = instruction.name;
+    var PRE = instruction.Name;
+    var props = instruction.props;
+    var propName = PREFIX ? PREFIX + PRE : pre;
+    var cssName = PREFIX ? '-' + PREFIX.toLowerCase() + '-' + pre : pre;
+    var res = { dom: {}, css: {} };
+    res.dom[pre] = propName;
+    res.css[pre] = cssName;
+    props.forEach(function (prop) {
+      var p = prop.replace(/\-/g, '');
+      var c = '-' + prop.toLowerCase();
+      res.dom[pre + p] = propName + p;
+      res.css[pre + p] = cssName + c;
+      res.css[pre + c] = cssName + c;
+    });
+    return cb(res);
+  }
+
+  function createEvents(property, prefix) {
+    if (property._events) {
+      property.events = {};
+      for (var index in property._events) {
+        var _event = property._events[index];
+        var eventName = _event.toLowerCase();
+        var vendorName = prefix ? prefix + _event : eventName;
+        var alias = eventName.replace(property.name, '');
+        property.events[alias] = vendorName;
+        property.events[eventName] = vendorName;
+      }
+      delete property._events;
+    }
+  }
+
+  function getEventPrefix(animation) {
+    var unbind;
+    var animListeners = [{ prefix: false, evt: 'animationstart' }, { prefix: 'webkit', evt: 'webkitAnimationStart' }, { prefix: 'Webkit', evt: 'WebkitAnimationStart' }, { prefix: 'Moz', evt: 'MozAnimationStart' }, { prefix: 'O', evt: 'OAnimationStart' }];
+
+    var element = DOM.createElement('div');
+    element.className = 'au-animated-test';
+    element.style.width = 0;
+    element.style.height = 0;
+    element.style.overflow = 'hidden';
+
+    var style = DOM.createElement('style');
+    style.type = 'text/css';
+    style.innerHTML = "@-webkit-keyframes au-test-animation {0% {height: 0;} 100% {height: 0;} } @-moz-keyframes au-test-animation {0% {height: 0;} 100% {height: 0;} } @-ms-keyframes au-test-animation {0% {height: 0;} 100% {height: 0;} } @-o-keyframes au-test-animation {0% {height: 0;} 100% {height: 0;} } @keyframes au-test-animation {0% {height: 0;} 100% {height: 0;} } ";
+
+    animation.setStyle(element, 'animation-name', 'au-test-animation');
+    animation.setStyle(element, 'animation-duration', '10ms');
+
+    document.head.appendChild(style);
+
+    unbind = function () {
+      for (var index in animListeners) {
+        element.removeEventListener(animListeners[index].evt, animListeners[index].handler);
+      }
+      element.remove();
+      style.remove();
+    };
+
+    var _loop = function (index) {
+      animListeners[index].handler = function (e) {
+        createEvents(animation, animListeners[index].prefix);
+        unbind();
+      };
+      element.addEventListener(animListeners[index].evt, animListeners[index].handler);
+    };
+
+    for (var index in animListeners) {
+      var _handler;
+
+      _loop(index);
+    }
+    document.body.appendChild(element);
+  }
+
+  function cap(name) {
+    var upper = name[0].toUpperCase();
+    cap.cache = cap.cache || {};
+    return name[0] === upper ? name : cap.cache[name] ? cap.cache[name] : cap.cache[name] = upper + name.slice(1);
+  }
+
+  function logger(element) {
+    if (element.nodeName === 'AI-VIEW') {
+      logger.log = function () {
+        console.log.apply(console, arguments);
+      };
+    } else {
+      logger.log = function () {};
+    }
+  }
+
+  function runTimeout(time, cb) {
+    if (!cb) return;
+    if (!time) return cb();
+    var TIMEOUT_ID = setTimeout(function () {
+      cb();
+      clearTimeout(TIMEOUT_ID);
+    }, time);
+  }
 
   function configure(config, callback) {
     var animator = config.container.get(CssAnimator);
@@ -16,13 +134,375 @@ System.register(['aurelia-templating', 'aurelia-pal'], function (_export) {
   }
 
   return {
-    setters: [function (_aureliaTemplating) {
+    setters: [function (_aureliaPal) {
+      DOM = _aureliaPal.DOM;
+    }, function (_aureliaTemplating) {
       animationEvent = _aureliaTemplating.animationEvent;
       TemplatingEngine = _aureliaTemplating.TemplatingEngine;
-    }, function (_aureliaPal) {
-      DOM = _aureliaPal.DOM;
     }],
     execute: function () {
+      Webkit = 'Webkit';
+      Moz = 'Moz';
+      O = 'O';
+      webkit = 'webkit';
+      moz = 'moz';
+      ms = 'ms';
+      o = 'o';
+      anim = 'animation';
+      Anim = 'Animation';
+      transit = 'transition';
+      Transit = 'Transition';
+      transfm = 'transform';
+      Transfm = 'Transform';
+      animProps = ['Name', 'Delay', 'Fill-Mode', 'Duration', 'Direction', 'Play-State', 'Iteration-Count', 'Timing-Function'];
+      transitProps = ['Delay', 'Duration', 'Property', 'Timing-Function'];
+      transfmProps = ['Box', 'Style', 'Origin'];
+      animEvents = ['AnimationStart', 'AnimationIteration', 'AnimationEnd'];
+      transitEvents = ['TransitionEnd'];
+      vendors = { webkit: webkit, moz: moz, ms: ms, o: o };
+      Vendors = { Webkit: Webkit, Moz: Moz, O: O };
+      animInstruction = { name: anim, Name: Anim, props: animProps, dom: {}, css: {}, events: animEvents };
+      transitInstruction = { name: transit, Name: Transit, props: transitProps, dom: {}, css: {}, events: transitEvents };
+      transfmInstruction = { name: transfm, Name: Transfm, props: transfmProps, dom: {}, css: {} };
+      PREFIX = findVendorPrefix();
+      keyframestype = window.CSSRule.KEYFRAMES_RULE || window.CSSRule.MOZ_KEYFRAMES_RULE || window.CSSRule.WEBKIT_KEYFRAMES_RULE;
+      handlers = {
+        getDelay: function getDelay(node) {
+          delay = this.getComputedValue(prop);
+          if (!delay) return 0;
+          delay = Number(delay.replace(/[^\d\.]/g, ''));
+          return delay * 1000;
+        },
+        getNames: function getNames(node) {
+          var names = this.getComputedValue(node, 'animation-name');
+          return names ? names.split(/\s/) : names;
+        }
+      };
+
+      PropertyInstruction = (function () {
+        PropertyInstruction.animation = function animation() {
+          return new PropertyInstruction({
+            vendor: PREFIX,
+            name: anim,
+            props: animProps,
+            events: animEvents,
+            handlers: handlers
+          }, function initialize(instruction, instance) {
+            createProps(instruction, function (property) {
+              instance.dom = property.dom;
+              instance.css = property.css;
+            });
+            getEventPrefix(instance);
+          });
+        };
+
+        PropertyInstruction.transition = function transition() {
+          var getDelay = handlers.getDelay;
+          return new PropertyInstruction({
+            vendor: PREFIX,
+            name: transit,
+            props: transitProps,
+            events: transitEvents,
+            handlers: { getDelay: getDelay }
+          }, function initialize(instruction, instance) {
+            createProps(instruction, function (property) {
+              instance.dom = property.dom;
+              instance.css = property.css;
+            });
+            createEvents(instance, false);
+          });
+        };
+
+        PropertyInstruction.transform = function transform() {
+          return new PropertyInstruction({
+            vendor: PREFIX,
+            name: transfm,
+            props: transfmProps
+          }, function initialize(instruction, instance) {
+            createProps(instruction, function (property) {
+              instance.dom = property.dom;
+              instance.css = property.css;
+            });
+          });
+        };
+
+        PropertyInstruction.keyframes = function keyframes() {
+          return new PropertyInstruction({
+            vendor: PREFIX,
+            name: 'keyframes',
+            type: keyframestype
+          }, function initialize(instruction, instance) {});
+        };
+
+        function PropertyInstruction(instruction, init) {
+          _classCallCheck(this, PropertyInstruction);
+
+          Object.assign(this, instruction);
+          this.Name = cap(instruction.name);
+          this.initHandler = init || function () {};
+        }
+
+        PropertyInstruction.prototype.initialize = function initialize(instance) {
+          if (this.handlers) for (var handlerName in this.handlers) {
+            var _handler = this.handlers[handlerName];
+            instance[handlerName] = this.handlers[handlerName].bind(instance);
+          }
+          return this.initHandler(this, instance);
+        };
+
+        return PropertyInstruction;
+      })();
+
+      _export('PropertyInstruction', PropertyInstruction);
+
+      KeyframesProperty = (function () {
+        function KeyframesProperty(instruction) {
+          _classCallCheck(this, KeyframesProperty);
+
+          this.name = instruction.name;
+          this.cssName = '@' + this.name;
+          if (instruction.vendor || instruction.vendor !== undefined) {
+            this.vendor = instruction.vendor;
+            this.cssName = '@' + ('-' + this.vendor + '-' + this.name);
+          }
+          instruction.initialize(this);
+        }
+
+        KeyframesProperty.prototype.createSheet = function createSheet() {
+          if (this.styleSheet) return;
+          this.styleSheet = DOM.createElement('style');
+          this.styleSheet.type = 'text/css';
+          this.styleSheet.id = 'au-keyframes-sheet';
+          document.head.appendChild(this.styleSheet);
+          return this.styleSheet;
+        };
+
+        KeyframesProperty.prototype.getKeyframeByAnimationNames = function getKeyframeByAnimationNames(animNames) {
+          var styleSheets = document.styleSheets;
+
+          for (var sheetIndex in styleSheets) {
+            var cssRules = styleSheets[sheetIndex].cssRules;
+
+            for (var ruleIndex in cssRules) {
+              var cssRule = cssRules[ruleIndex];
+              var isType = cssRule.type === this.type;
+
+              if (isType && animNames.indexOf(cssRule.name) !== -1) {
+                return true;
+              }
+            }
+          }
+          return false;
+        };
+
+        return KeyframesProperty;
+      })();
+
+      Property = (function () {
+        Property.animation = function animation() {
+          Property._animation = Property._animation || new Property(PropertyInstruction.animation());
+          return Property._animation;
+        };
+
+        Property.transition = function transition() {
+          Property._transition = Property._transition || new Property(PropertyInstruction.transition());
+          return Property._transition;
+        };
+
+        Property.transform = function transform() {
+          Property._transform = Property._transform || new Property(PropertyInstruction.transform());
+          return Property._transform;
+        };
+
+        Property.keyframes = function keyframes() {
+          Property._keyframes = Property._keyframes || new KeyframesProperty(PropertyInstruction.keyframes());
+          return Property._keyframes;
+        };
+
+        function Property(instruction) {
+          _classCallCheck(this, Property);
+
+          this.name = instruction.name;
+          this.metadata = instruction;
+          if (instruction.events) {
+            this._events = instruction.events;
+          }
+          instruction.initialize(this);
+        }
+
+        Property.prototype.setStyle = function setStyle(node, propName, propValue) {
+          var vendorName = undefined;
+          if (propName in this.dom) {
+            vendorName = this.dom[propName];
+          }
+          node.style[propName] = propValue;
+          node.style[vendorName] = propValue;
+          return node;
+        };
+
+        Property.prototype.assignStyle = function assignStyle(node, styles) {
+          for (var propName in styles) {
+            this.setStyle(node, propName, styles[propValue]);
+          }
+          return node;
+        };
+
+        Property.prototype.getComputedValue = function getComputedValue(node, propName) {
+          var computed = DOM.getComputedStyle(node);
+          var vendorName;
+          var propValue;
+          if (propName in this.css) {
+            vendorName = this.css[propName];
+            propValue = computed.getPropertyValue(vendorName);
+          }
+          propValue = propValue || computed.getPropertyValue(propName);
+          return propValue;
+        };
+
+        Property.prototype.subscribe = function subscribe(element, eventName, callback, bubbles) {
+          eventName = eventName in this.events ? this.events[eventName] : eventName;
+          callback.handler = handler;
+          var event = { dispose: dispose, callback: callback, eventName: eventName, element: element, triggered: false, bound: false };
+          element.addEventListener(eventName, handler, bubbles);
+          event.bound = true;
+
+          return event;
+
+          function handler(evt) {
+            event.triggered = true;
+            return callback(evt);
+          }
+
+          function dispose() {
+            element.removeEventListener(eventName, handler, bubbles);
+            event.bound = false;
+          }
+        };
+
+        Property.prototype.unsubscribe = function unsubscribe(element, eventName, callback, bubbles) {
+          eventName = eventName in this.events ? this.events[eventName] : eventName;
+          if (callback.handler) {
+            callback = callback.handler;
+          }
+          element.removeEventListener(eventName, callback, bubbles);
+        };
+
+        return Property;
+      })();
+
+      _export('Property', Property);
+
+      animation = Property.animation();
+      keyframes = Property.keyframes();
+
+      logger.log = function () {};
+      AnimationInstruction = (function () {
+        AnimationInstruction.animate = function animate(instruction) {
+          var name = instruction.name;
+          var pre = instruction.prefix;
+          var className = pre + name;
+          var active = '-active';
+          return new AnimationInstruction({
+            name: name,
+            add: {
+              prepare: [className],
+              activate: [className + active]
+            },
+            remove: {
+              end: [className + active, className],
+              clean: [className + active, className]
+            },
+            contains: {
+              stagger: [pre + 'stagger', pre + 'stagger-' + name]
+            },
+            useDoneClasses: true
+          });
+        };
+
+        AnimationInstruction.addClass = function addClass(instruction) {
+          var name = 'addClass';
+          var add = '-add';
+          var className = instruction.className;
+          return new AnimationInstruction({
+            name: name,
+            add: {
+              end: [className],
+              activate: [className + add]
+            },
+            remove: {
+              end: [className + add],
+              clean: [className + add, className]
+            },
+            suppressEvents: instruction.suppressEvents
+          });
+        };
+
+        AnimationInstruction.removeClass = function removeClass(instruction) {
+          var name = 'addClass';
+          var add = '-add';
+          var remove = '-remove';
+          var className = instruction.className;
+          return new AnimationInstruction({
+            name: name,
+            add: {
+              start: [className],
+              end: [className],
+              activate: [className + remove]
+            },
+            remove: {
+              clean: [className + remove, className]
+            },
+            contains: {
+              canAnimate: [className, className + add]
+            },
+            suppressEvents: instruction.suppressEvents
+          });
+        };
+
+        function AnimationInstruction(instruction) {
+          _classCallCheck(this, AnimationInstruction);
+
+          this.name = null;
+          this.doneClasses = false;
+          this.suppressEvents = false;
+
+          this.name = instruction.name || false;
+          this.doneClass = instruction.doneClass || this.doneClass;
+          this.suppressEvents = instruction.suppressEvents || this.suppressEvents;
+          this._contains = instruction.contains;
+          this._remove = instruction.remove;
+          this._add = instruction.add;
+
+          var lifeCycleKeys = ['prepare', 'start', 'end', 'activate', 'done', 'clean'];
+          var containKeys = ['stagger', 'canAnimate'];
+        }
+
+        AnimationInstruction.prototype._changeClass = function _changeClass(element, changeMethod, classSet, key) {
+          var changeType = '_' + changeMethod;
+          if (key in classSet && classSet[key].length) {
+            element.classList[changeMethod].apply(element.classList, classSet[key]);
+          }
+        };
+
+        AnimationInstruction.prototype.changeClass = function changeClass(element, key) {
+          this._changeClass(element, 'add', this._add, key);
+          this._changeClass(element, 'remove', this._remove, key);
+        };
+
+        AnimationInstruction.prototype.containsClass = function containsClass(element, key) {
+          if (key in this._contains && this._contains[key].length) {
+            return element.classList.contains.apply(element.classList, this._contains[key]);
+          }
+        };
+
+        return AnimationInstruction;
+      })();
+
+      cachedInstruction = {
+        removeClass: {},
+        addClass: {}
+      };
+
       CssAnimator = (function () {
         function CssAnimator() {
           _classCallCheck(this, CssAnimator);
@@ -30,62 +510,33 @@ System.register(['aurelia-templating', 'aurelia-pal'], function (_export) {
           this.useAnimationDoneClasses = false;
           this.animationEnteredClass = 'au-entered';
           this.animationLeftClass = 'au-left';
+          this.doneClasses = {
+            enter: this.animationEnteredClass,
+            leave: this.animationLeftClass
+          };
+
           this.isAnimating = false;
 
           this.verifyKeyframesExist = true;
         }
 
-        CssAnimator.prototype._addMultipleEventListener = function _addMultipleEventListener(el, s, fn) {
-          var evts = s.split(' ');
-          for (var i = 0, ii = evts.length; i < ii; ++i) {
-            el.addEventListener(evts[i], fn, false);
+        CssAnimator.prototype._removeDoneClasses = function _removeDoneClasses(element, name) {
+          if (self.useAnimationDoneClasses && name in this.doneClasses) {
+            element.classList.remove(this.doneClasses.enter);
+            element.classList.remove(this.doneClasses.leave);
           }
         };
 
-        CssAnimator.prototype._getElementAnimationDelay = function _getElementAnimationDelay(element) {
-          var styl = DOM.getComputedStyle(element);
-          var prop = undefined;
-          var delay = undefined;
-
-          if (styl.getPropertyValue('animation-delay')) {
-            prop = 'animation-delay';
-          } else if (styl.getPropertyValue('-webkit-animation-delay')) {
-            prop = '-webkit-animation-delay';
-          } else if (styl.getPropertyValue('-moz-animation-delay')) {
-            prop = '-moz-animation-delay';
-          } else {
-            return 0;
+        CssAnimator.prototype._addDoneClasses = function _addDoneClasses(element, name) {
+          if (self.useAnimationDoneClasses && name in this.doneClasses) {
+            element.classList.remove(this.doneClasses[name]);
           }
-
-          delay = styl.getPropertyValue(prop);
-          delay = Number(delay.replace(/[^\d\.]/g, ''));
-
-          return delay * 1000;
-        };
-
-        CssAnimator.prototype._getElementAnimationNames = function _getElementAnimationNames(element) {
-          var styl = DOM.getComputedStyle(element);
-          var prefix = undefined;
-
-          if (styl.getPropertyValue('animation-name')) {
-            prefix = '';
-          } else if (styl.getPropertyValue('-webkit-animation-name')) {
-            prefix = '-webkit-';
-          } else if (styl.getPropertyValue('-moz-animation-name')) {
-            prefix = '-moz-';
-          } else {
-            return [];
-          }
-
-          var animationNames = styl.getPropertyValue(prefix + 'animation-name');
-          return animationNames ? animationNames.split(' ') : [];
         };
 
         CssAnimator.prototype._performSingleAnimate = function _performSingleAnimate(element, className) {
           var _this = this;
 
           this._triggerDOMEvent(animationEvent.animateBegin, element);
-
           return this.addClass(element, className, true).then(function (result) {
             _this._triggerDOMEvent(animationEvent.animateActive, element);
 
@@ -111,37 +562,122 @@ System.register(['aurelia-templating', 'aurelia-pal'], function (_export) {
             return prevAnimationNames.indexOf(name) === -1;
           });
 
-          if (newAnimationNames.length === 0) {
-            return false;
-          }
+          return newAnimationNames.length === 0 ? false : !this.verifyKeyframesExist ? true : keyframes.getKeyframeByAnimationNames(newAnimationNames);
+        };
 
-          if (!this.verifyKeyframesExist) {
-            return true;
-          }
+        CssAnimator.prototype._runAnimationLifeCycle = function _runAnimationLifeCycle(element, instruction) {
+          var self = this;
+          var animationName = instruction.name;
+          var beginEvent = animationEvent[animationName + 'Begin'];
+          var activeEvent = animationEvent[animationName + 'Active'];
+          var doneEvent = animationEvent[animationName + 'Done'];
+          var timeoutEvent = animationEvent[animationName + 'Timeout'];
+          var prevAnimationNames = undefined;
+          var animStart = undefined;
+          var animEnd = undefined;
+          var canDispatch = !instruction.suppressEvents;
+          var useDoneClasses = instruction.useDoneClasses;
 
-          var keyframesRuleType = window.CSSRule.KEYFRAMES_RULE || window.CSSRule.MOZ_KEYFRAMES_RULE || window.CSSRule.WEBKIT_KEYFRAMES_RULE;
+          var animationSteps = [];
+          var begin = undefined,
+              removeDoneClasses = undefined,
+              prepare = undefined,
+              bind = undefined,
+              unbind = undefined,
+              activate = undefined,
+              cleanup = undefined;
 
-          var styleSheets = document.styleSheets;
-          for (var i = 0; i < styleSheets.length; ++i) {
-            var cssRules = styleSheets[i].cssRules;
+          return new Promise(function (resolve, reject) {
+            if ('canAnimate' in instruction) {
+              if (!instruction.containsClass(element, 'canAnimate')) {
+                return resolve(false);
+              }
+            };
 
-            for (var j = 0; j < cssRules.length; ++j) {
-              var cssRule = cssRules[j];
+            canDispatch && self._triggerDOMEvent(beginEvent, element);
 
-              if (cssRule.type === keyframesRuleType) {
-                if (newAnimationNames.indexOf(cssRule.name) !== -1) {
-                  return true;
+            instruction.changeClass(element, 'begin');
+            useDoneClasses && self.removeDoneClasses(element, animationName);
+
+            instruction.changeClass(element, 'prepare');
+
+            prevAnimationNames = animation.getNames(element);
+
+            animStart = animation.subscribe(element, 'start', onAnimationStart, false);
+            function onAnimationStart(evAnimStart) {
+              self.isAnimating = true;
+              canDispatch && self._triggerDOMEvent(activeEvent, element);
+
+              evAnimStart.stopPropagation();
+
+              instruction.changeClass(element, 'start');
+              animStart.dispose();
+            }
+
+            animEnd = animation.subscribe(element, 'end', onAnimationEnd, false);
+            function onAnimationEnd(evAnimEnd) {
+              if (!animStart.triggered) {
+                if (animStart.bound) animStart.dispose();
+                if (animEnd.bound) animEnd.dispose();
+                return;
+              }
+
+              evAnimEnd.stopPropagation();
+
+              instruction.changeClass(element, 'end');
+
+              animEnd.dispose();
+
+              instruction.changeClass(element, 'done');
+              useDoneClasses && self._addDoneClasses(element, animationName);
+
+              self.isAnimating = false;
+
+              canDispatch && self._triggerDOMEvent(doneEvent, element);
+              resolve(true);
+            }
+
+            var canStagger = false;
+            var delay = 0;
+
+            if (element.parentElement instanceof DOM.Element) {
+              canStagger = instruction.containsClass(element, 'stagger');
+            }
+
+            if (canStagger) {
+              var elemPos = Array.prototype.indexOf.call(parent.childNodes, element);
+              delay = animation.getDelay(element) * elemPos;
+
+              runTimeout(delay, function () {
+                if (instruction.activate) {
+                  instruction.changeClass(element, 'activate');
                 }
+                cleanup();
+              });
+            } else {
+              instruction.changeClass(element, 'activate');
+              cleanup();
+            }
+
+            function cleanup() {
+              var animationNames = animation.getNames(element);
+
+              if (!animationNames.length) {
+                instruction.changeClass(element, 'clean');
+
+                if (!instruction.suppressEvents) {
+                  self._triggerDOMEvent(timeoutEvent, element);
+                }
+                resolve(false);
               }
             }
-          }
-
-          return false;
+          });
         };
 
         CssAnimator.prototype.animate = function animate(element, className) {
           var _this2 = this;
 
+          logger(element);
           if (Array.isArray(element)) {
             return Promise.all(element.map(function (el) {
               return _this2._performSingleAnimate(el, className);
@@ -157,6 +693,7 @@ System.register(['aurelia-templating', 'aurelia-pal'], function (_export) {
           this._triggerDOMEvent(animationEvent.sequenceBegin, null);
 
           return animations.reduce(function (p, anim) {
+            logger(anim.element);
             return p.then(function () {
               return _this3.animate(anim.element, anim.className);
             });
@@ -166,307 +703,53 @@ System.register(['aurelia-templating', 'aurelia-pal'], function (_export) {
         };
 
         CssAnimator.prototype.enter = function enter(element) {
-          var _this4 = this;
+          logger(element);
+          var self = this;
 
-          return new Promise(function (resolve, reject) {
-            var classList = element.classList;
-
-            _this4._triggerDOMEvent(animationEvent.enterBegin, element);
-
-            if (_this4.useAnimationDoneClasses) {
-              classList.remove(_this4.animationEnteredClass);
-              classList.remove(_this4.animationLeftClass);
-            }
-
-            classList.add('au-enter');
-            var prevAnimationNames = _this4._getElementAnimationNames(element);
-
-            var animStart = undefined;
-            var animHasStarted = false;
-            _this4._addMultipleEventListener(element, 'webkitAnimationStart animationstart', animStart = function (evAnimStart) {
-              animHasStarted = true;
-              _this4.isAnimating = true;
-
-              _this4._triggerDOMEvent(animationEvent.enterActive, element);
-
-              evAnimStart.stopPropagation();
-
-              evAnimStart.target.removeEventListener(evAnimStart.type, animStart);
-            }, false);
-
-            var animEnd = undefined;
-            _this4._addMultipleEventListener(element, 'webkitAnimationEnd animationend', animEnd = function (evAnimEnd) {
-              if (!animHasStarted) {
-                return;
-              }
-
-              evAnimEnd.stopPropagation();
-
-              classList.remove('au-enter-active');
-              classList.remove('au-enter');
-
-              evAnimEnd.target.removeEventListener(evAnimEnd.type, animEnd);
-
-              if (_this4.useAnimationDoneClasses && _this4.animationEnteredClass !== undefined && _this4.animationEnteredClass !== null) {
-                classList.add(_this4.animationEnteredClass);
-              }
-
-              _this4.isAnimating = false;
-              _this4._triggerDOMEvent(animationEvent.enterDone, element);
-
-              resolve(true);
-            }, false);
-
-            var parent = element.parentElement;
-            var delay = 0;
-
-            var cleanupAnimation = function cleanupAnimation() {
-              var animationNames = _this4._getElementAnimationNames(element);
-              if (!_this4._animationChangeWithValidKeyframe(animationNames, prevAnimationNames)) {
-                classList.remove('au-enter-active');
-                classList.remove('au-enter');
-                _this4._triggerDOMEvent(animationEvent.enterTimeout, element);
-                resolve(false);
-              }
-            };
-
-            if (parent !== null && parent !== undefined && (parent.classList.contains('au-stagger') || parent.classList.contains('au-stagger-enter'))) {
-              var elemPos = Array.prototype.indexOf.call(parent.childNodes, element);
-              delay = _this4._getElementAnimationDelay(parent) * elemPos;
-
-              _this4._triggerDOMEvent(animationEvent.staggerNext, element);
-
-              setTimeout(function () {
-                classList.add('au-enter-active');
-                cleanupAnimation();
-              }, delay);
-            } else {
-              classList.add('au-enter-active');
-              cleanupAnimation();
-            }
-          });
+          if (!this.enterInstruction) {
+            var instruction = { name: 'enter', prefix: 'au-' };
+            this.enterInstruction = AnimationInstruction.animate(instruction);
+          }
+          return this._runAnimationLifeCycle(element, this.enterInstruction);
         };
 
         CssAnimator.prototype.leave = function leave(element) {
-          var _this5 = this;
+          logger(element);
+          var self = this;
 
-          return new Promise(function (resolve, reject) {
-            var classList = element.classList;
-
-            _this5._triggerDOMEvent(animationEvent.leaveBegin, element);
-
-            if (_this5.useAnimationDoneClasses) {
-              classList.remove(_this5.animationEnteredClass);
-              classList.remove(_this5.animationLeftClass);
-            }
-
-            classList.add('au-leave');
-            var prevAnimationNames = _this5._getElementAnimationNames(element);
-
-            var animStart = undefined;
-            var animHasStarted = false;
-            _this5._addMultipleEventListener(element, 'webkitAnimationStart animationstart', animStart = function (evAnimStart) {
-              animHasStarted = true;
-              _this5.isAnimating = true;
-
-              _this5._triggerDOMEvent(animationEvent.leaveActive, element);
-
-              evAnimStart.stopPropagation();
-
-              evAnimStart.target.removeEventListener(evAnimStart.type, animStart);
-            }, false);
-
-            var animEnd = undefined;
-            _this5._addMultipleEventListener(element, 'webkitAnimationEnd animationend', animEnd = function (evAnimEnd) {
-              if (!animHasStarted) {
-                return;
-              }
-
-              evAnimEnd.stopPropagation();
-
-              classList.remove('au-leave-active');
-              classList.remove('au-leave');
-
-              evAnimEnd.target.removeEventListener(evAnimEnd.type, animEnd);
-
-              if (_this5.useAnimationDoneClasses && _this5.animationLeftClass !== undefined && _this5.animationLeftClass !== null) {
-                classList.add(_this5.animationLeftClass);
-              }
-
-              _this5.isAnimating = false;
-              _this5._triggerDOMEvent(animationEvent.leaveDone, element);
-
-              resolve(true);
-            }, false);
-
-            var parent = element.parentElement;
-            var delay = 0;
-
-            var cleanupAnimation = function cleanupAnimation() {
-              var animationNames = _this5._getElementAnimationNames(element);
-              if (!_this5._animationChangeWithValidKeyframe(animationNames, prevAnimationNames)) {
-                classList.remove('au-leave-active');
-                classList.remove('au-leave');
-                _this5._triggerDOMEvent(animationEvent.leaveTimeout, element);
-                resolve(false);
-              }
-            };
-
-            if (parent !== null && parent !== undefined && (parent.classList.contains('au-stagger') || parent.classList.contains('au-stagger-leave'))) {
-              var elemPos = Array.prototype.indexOf.call(parent.childNodes, element);
-              delay = _this5._getElementAnimationDelay(parent) * elemPos;
-
-              _this5._triggerDOMEvent(animationEvent.staggerNext, element);
-
-              setTimeout(function () {
-                classList.add('au-leave-active');
-                cleanupAnimation();
-              }, delay);
-            } else {
-              classList.add('au-leave-active');
-              cleanupAnimation();
-            }
-          });
+          if (!this.leaveInstruction) {
+            var instruction = { name: 'leave', prefix: 'au-' };
+            this.leaveInstruction = AnimationInstruction.animate(instruction);
+          }
+          return this._runAnimationLifeCycle(element, this.leaveInstruction);
         };
 
         CssAnimator.prototype.removeClass = function removeClass(element, className) {
-          var _this6 = this;
-
           var suppressEvents = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
 
-          return new Promise(function (resolve, reject) {
-            var classList = element.classList;
-
-            if (!classList.contains(className) && !classList.contains(className + '-add')) {
-              resolve(false);
-              return;
-            }
-
-            if (suppressEvents !== true) {
-              _this6._triggerDOMEvent(animationEvent.removeClassBegin, element);
-            }
-
-            classList.remove(className);
-            var prevAnimationNames = _this6._getElementAnimationNames(element);
-
-            var animStart = undefined;
-            var animHasStarted = false;
-            _this6._addMultipleEventListener(element, 'webkitAnimationStart animationstart', animStart = function (evAnimStart) {
-              animHasStarted = true;
-              _this6.isAnimating = true;
-
-              if (suppressEvents !== true) {
-                _this6._triggerDOMEvent(animationEvent.removeClassActive, element);
-              }
-
-              evAnimStart.stopPropagation();
-
-              evAnimStart.target.removeEventListener(evAnimStart.type, animStart);
-            }, false);
-
-            var animEnd = undefined;
-            _this6._addMultipleEventListener(element, 'webkitAnimationEnd animationend', animEnd = function (evAnimEnd) {
-              if (!animHasStarted) {
-                return;
-              }
-
-              evAnimEnd.stopPropagation();
-
-              classList.remove(className + '-remove');
-
-              evAnimEnd.target.removeEventListener(evAnimEnd.type, animEnd);
-
-              _this6.isAnimating = false;
-
-              if (suppressEvents !== true) {
-                _this6._triggerDOMEvent(animationEvent.removeClassDone, element);
-              }
-
-              resolve(true);
-            }, false);
-
-            classList.add(className + '-remove');
-
-            var animationNames = _this6._getElementAnimationNames(element);
-            if (!_this6._animationChangeWithValidKeyframe(animationNames, prevAnimationNames)) {
-              classList.remove(className + '-remove');
-              classList.remove(className);
-
-              if (suppressEvents !== true) {
-                _this6._triggerDOMEvent(animationEvent.removeClassTimeout, element);
-              }
-
-              resolve(false);
-            }
-          });
+          logger(element);
+          if (!(className in cachedInstruction.removeClass)) {
+            cachedInstruction.removeClass[className] = AnimationInstruction.removeClass({
+              name: 'removeClass',
+              className: className,
+              suppressEvents: suppressEvents
+            });
+          }
+          return this._runAnimationLifeCycle(element, cachedInstruction.removeClass[className]);
         };
 
         CssAnimator.prototype.addClass = function addClass(element, className) {
-          var _this7 = this;
-
           var suppressEvents = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
 
-          return new Promise(function (resolve, reject) {
-            var classList = element.classList;
-
-            if (suppressEvents !== true) {
-              _this7._triggerDOMEvent(animationEvent.addClassBegin, element);
-            }
-
-            var animStart = undefined;
-            var animHasStarted = false;
-            _this7._addMultipleEventListener(element, 'webkitAnimationStart animationstart', animStart = function (evAnimStart) {
-              animHasStarted = true;
-              _this7.isAnimating = true;
-
-              if (suppressEvents !== true) {
-                _this7._triggerDOMEvent(animationEvent.addClassActive, element);
-              }
-
-              evAnimStart.stopPropagation();
-
-              evAnimStart.target.removeEventListener(evAnimStart.type, animStart);
-            }, false);
-
-            var animEnd = undefined;
-            _this7._addMultipleEventListener(element, 'webkitAnimationEnd animationend', animEnd = function (evAnimEnd) {
-              if (!animHasStarted) {
-                return;
-              }
-
-              evAnimEnd.stopPropagation();
-
-              classList.add(className);
-
-              classList.remove(className + '-add');
-
-              evAnimEnd.target.removeEventListener(evAnimEnd.type, animEnd);
-
-              _this7.isAnimating = false;
-
-              if (suppressEvents !== true) {
-                _this7._triggerDOMEvent(animationEvent.addClassDone, element);
-              }
-
-              resolve(true);
-            }, false);
-
-            var prevAnimationNames = _this7._getElementAnimationNames(element);
-
-            classList.add(className + '-add');
-
-            var animationNames = _this7._getElementAnimationNames(element);
-            if (!_this7._animationChangeWithValidKeyframe(animationNames, prevAnimationNames)) {
-              classList.remove(className + '-add');
-              classList.add(className);
-
-              if (suppressEvents !== true) {
-                _this7._triggerDOMEvent(animationEvent.addClassTimeout, element);
-              }
-
-              resolve(false);
-            }
-          });
+          logger(element);
+          if (!(className in cachedInstruction.addClass)) {
+            cachedInstruction.addClass[className] = AnimationInstruction.addClass({
+              name: 'addClass',
+              className: className,
+              suppressEvents: suppressEvents
+            });
+          }
+          return this._runAnimationLifeCycle(element, cachedInstruction.addClass[className]);
         };
 
         return CssAnimator;
