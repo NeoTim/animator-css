@@ -95,7 +95,8 @@ describe('animator-css', () => {
 
     it('should not kick off animation on element without proper classes', (done) => {
       var elem = $('.boring-item').eq(0)[0];
-      var anim = sut.enter(elem).then( (didRunAnimation) => {
+
+      sut.enter(elem).then( (didRunAnimation) => {
         expect(didRunAnimation).toBe(false);
         done();
       });
@@ -186,7 +187,8 @@ describe('animator-css', () => {
       var elem = $('.boring-item').eq(0)[0]
         , timeoutCalled = false;
 
-      var listener = document.addEventListener(animationEvent.enterTimeout, () => {
+      var listener;
+      document.addEventListener(animationEvent.enterTimeout, listener = () => {
         timeoutCalled = true;
       });
 
@@ -477,10 +479,11 @@ describe('animator-css', () => {
 
     it('should publish expected events', (done) => {
       var addClassBeginCalled = false
-        , addClassDoneCalled = false;
+        , addClassDoneCalled = false
+        , l1, l2;
 
-      var l1 = document.addEventListener(animationEvent.addClassBegin, () => addClassBeginCalled = true)
-        , l2 = document.addEventListener(animationEvent.addClassDone, () => addClassDoneCalled = true);
+      document.addEventListener(animationEvent.addClassBegin, l1 = () => addClassBeginCalled = true)
+      document.addEventListener(animationEvent.addClassDone,  l2 = () => addClassDoneCalled = true);
 
       sut.addClass(elem, testClass).then( () => {
         expect(addClassBeginCalled).toBe(true);
@@ -544,6 +547,7 @@ describe('animator-css', () => {
       loadFixtures('animation.html');
       elems = $('.stagger');
       $(elems).removeClass('au-left');
+
     });
 
     it('should trigger stagger event', (done) => {
@@ -562,7 +566,7 @@ describe('animator-css', () => {
         document.removeEventListener(animationEvent.staggerNext, listener);
         done();
       });
-    });
+    })
 
     it('should animate enter elements staggered', (done) => {
       var proms = [];

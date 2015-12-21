@@ -1,31 +1,32 @@
 import {DOM} from 'aurelia-pal';
-import {PropertyInstruction} from './instruction';
-import {logger} from './animator';
+import {createProperties, createEvents} from './instruction';
+
+const keyframestype = window.CSSRule.KEYFRAMES_RULE ||
+                      window.CSSRule.MOZ_KEYFRAMES_RULE  ||
+                      window.CSSRule.WEBKIT_KEYFRAMES_RULE;
 
 class KeyframesProperty  {
 
-  constructor(instruction: Object) {
-    this.name    = instruction.name;
-    this.cssName = '@'+this.name;
-    if (instruction.vendor || instruction.vendor !== undefined) {
-      this.vendor = instruction.vendor;
-      this.cssName = '@' + (`-${this.vendor}-${this.name}`);
-    }
-    instruction.initialize(this);
+  constructor(property) {
+    this.name    = 'keyframes';
+    this.cssName = '@'+property.keyframesPrefix;
   }
 
-  createSheet() {
-    if (this.styleSheet) return;
-    this.styleSheet = DOM.createElement('style');
-    this.styleSheet.type = 'text/css';
-    this.styleSheet.id = 'au-keyframes-sheet';
-    document.head.appendChild(this.styleSheet);
-    return this.styleSheet;
+  /**
+   * Returns true if there is a new animation with valid keyframes
+   * @param animationNames the current animation style.
+   * @param prevAnimationNames the previous animation style
+   * @private
+   */
+  validateKeyFrames(verifyKeyframesExist:Boolean, animationNames: Array<string>, prevAnimationNames: Array<string>): bool {
+    let newAnimationNames = animationNames.filter(name => prevAnimationNames.indexOf(name) === -1);
+    return newAnimationNames.length === 0 ? false
+           : !verifyKeyframesExist ? true
+           : this.getKeyframeByAnimationNames(newAnimationNames);
   }
 
   getKeyframeByAnimationNames(animNames: String): Boolean {
     let styleSheets = document.styleSheets;
-
     // loop through the stylesheets searching for the keyframes. no cache is
     // used in case of dynamic changes to the stylesheets.
     for (let sheetIndex in styleSheets) {
@@ -33,7 +34,7 @@ class KeyframesProperty  {
 
       for (let ruleIndex in cssRules) {
         let cssRule = cssRules[ruleIndex];
-        let isType  = cssRule.type === this.type;
+        let isType  = cssRule.type === keyframestype;
 
         if (isType && animNames.indexOf(cssRule.name) !== -1) {
           return true;
@@ -44,93 +45,95 @@ class KeyframesProperty  {
   }
 }
 
-
-export class Property {
-
-  static animation(): Property {
-    Property._animation = Property._animation || new Property(PropertyInstruction.animation());
-    return Property._animation;
-  }
-
-  static transition(): Property {
-    Property._transition = Property._transition || new Property(PropertyInstruction.transition())
-    return Property._transition;
-  }
-
-  static transform(): Property {
-    Property._transform = Property._transform || new Property(PropertyInstruction.transform());
-    return Property._transform;
-  }
-
-  static keyframes(): KeyframesProperty {
-    Property._keyframes = Property._keyframes || new KeyframesProperty(PropertyInstruction.keyframes());
-    return Property._keyframes;
-  }
+class BaseProperty {
 
   constructor(instruction: Object) {
-    this.name = instruction.name;
-    this.metadata = instruction;
-    if (instruction.events) {
-      this._events = instruction.events;
+    createProperties(this);
+    createEvents(this);
+    this.keyframes = new KeyframesProperty(this);
+  }
+
+  _parseTimingValue(value) {
+    if (value || value !== 'none') {
+      value = Number(value.replace(/[^\d\.]/g, ''));
+      return (value * 1000);
     }
-    instruction.initialize(this);
+    return 0;
   }
 
   setStyle(node: Node, propName: String, propValue: String): Node {
-    let vendorName;
-    if (propName in this.dom) {
-      vendorName = this.dom[propName];
+    if (node instanceof Element) {
+      let vendorName;
+      if (propName in this.dom) {
+        vendorName = this.dom[propName];
+      }
+      node.style[propName] = propValue;
+      node.style[vendorName] = propValue;
+      return node;
     }
-    node.style[propName] = propValue;
-    node.style[vendorName] = propValue;
-    return node;
+    return Promise.reject(new Error('Property.prototype.setStyle requires an Element'));
   }
 
   assignStyle(node: Node, styles: Object): Node {
-    for(let propName in styles) {
-      this.setStyle(node, propName, styles[propValue]);
+    if (node instanceof Element) {
+      for(let propName in styles) {
+        this.setStyle(node, propName, styles[propValue]);
+      }
+      return node;
     }
-    return node;
+    return Promise.reject(new Error('Property.prototype.assignStyle requires an Element'));
   }
 
-  getComputedValue(node: Node, propName: String): String {
-    var computed = DOM.getComputedStyle(node);
-    var vendorName;
-    var propValue;
-    if (propName in this.css) {
-      vendorName = this.css[propName];
-      propValue = computed.getPropertyValue(vendorName);
+  getPropertyValue(node: Node, propName: String): String {
+    if (node instanceof Element) {
+      var computed = DOM.getComputedStyle(node);
+      var vendorName;
+      var propValue;
+      if (propName in this.css) {
+        vendorName = this.css[propName];
+        propValue = computed.getPropertyValue(vendorName);
+      }
+      propValue = propValue || computed.getPropertyValue(propName);
+      if (/duration|delay/ig.test(propName)) {
+        propValue = this._parseTimingValue(propValue);
+      }
+      return propValue;
     }
-    propValue = propValue || computed.getPropertyValue(propName);
-    return propValue;
+    return Promise.reject(new Error('Property.prototype.getPropertyValue requires an Element'));
+  }
+
+  getAnimationNames(node: Node): Array<String> {
+    let names = this.getPropertyValue(node, 'animation-name');
+    let result = names ? names.split(/\s/) : names;
+    if (result.length === 1 && result[0] === 'none') {
+      result.pop();
+    }
+    return result;
   }
 
   subscribe(element: DOM.Element, eventName: String, callback: Function, bubbles: Boolean): Object {
+    let event;
+    let handler;
+    let bound = true;
+    let triggered = false;
+
     eventName = eventName in this.events ? this.events[eventName] : eventName;
-    callback.handler = handler;
-    let event = {dispose, callback, eventName, element, triggered:false, bound:false};
-    element.addEventListener(eventName, handler, bubbles);
-    event.bound = true;
 
-    return event;
+    event = {
+      callback, eventName, element, triggered, bound,
+      dispose() {
+        element.removeEventListener(eventName, handler, bubbles);
+        event.bound = false;
+      }
+    };
 
-    function handler(evt) {
+    element.addEventListener(eventName, handler = (evt) => {
       event.triggered = true;
       return callback(evt);
-    }
+    }, bubbles);
 
-    function dispose() {
-      element.removeEventListener(eventName, handler, bubbles);
-      event.bound = false;
-    }
-  }
-
-  unsubscribe(element: DOM.Element, eventName: String, callback: Function, bubbles: Boolean) {
-    eventName = eventName in this.events ? this.events[eventName] : eventName;
-    if (callback.handler) {
-      callback = callback.handler;
-    }
-    element.removeEventListener(eventName, callback, bubbles);
+    return event;
   }
 }
 
+export const Property = new BaseProperty();
